@@ -7,6 +7,9 @@
  */
 
 #include "utils/includes.h"
+#ifdef CONFIG_SQLITE
+#include <sqlite3.h>
+#endif /* CONFIG_SQLITE */
 
 #include "utils/common.h"
 #include "utils/eloop.h"
@@ -1024,6 +1027,38 @@ hostapd_das_coa(void *ctx, struct radius_das_attrs *attr)
 #else /* CONFIG_HS20 */
 #define hostapd_das_coa NULL
 #endif /* CONFIG_HS20 */
+
+#ifdef CONFIG_SQLITE
+static int db_table_exists(sqlite3 *db, const char *name)
+{
+	char cmd[128];
+
+	os_snprintf(cmd, sizeof(cmd), "SELECT 1 FROM %s;", name);
+	return sqlite3_exec(db, cmd, NULL, NULL, NULL) == SQLITE_OK;
+}
+
+
+static int db_table_create_radius_attributes(sqlite3 *db)
+{
+	char *err = NULL;
+	const char *sql =
+		"CREATE TABLE radius_attributes("
+		" id INTEGER PRIMARY KEY,"
+		" sta TEXT,"
+		" reqtype TEXT,"
+		" attr TEXT"
+		");"
+		"CREATE INDEX idx_sta_reqtype ON radius_attributes(sta,reqtype);";
+	wpa_printf(MSG_DEBUG, "Adding database table for RADIUS attribute information");
+	if (sqlite3_exec(db, sql, NULL, NULL, &err) != SQLITE_OK) {
+		wpa_printf(MSG_ERROR, "SQLite error: %s", err);
+		sqlite3_free(err);
+		return -1;
+	}
+
+	return 0;
+}
+#endif /* CONFIG_SQLITE */
 
 #endif /* CONFIG_NO_RADIUS */
 

@@ -9,6 +9,8 @@
 #ifndef IEEE802_1X_H
 #define IEEE802_1X_H
 
+#include "radius/radius_client.h"
+
 struct hostapd_data;
 struct sta_info;
 struct eapol_state_machine;
@@ -59,6 +61,10 @@ int add_common_radius_attr(struct hostapd_data *hapd,
 			   struct hostapd_radius_attr *req_attr,
 			   struct sta_info *sta,
 			   struct radius_msg *msg);
+int add_sqlite_radius_attr(struct hostapd_data *hapd,
+			   struct sta_info *sta,
+			   struct radius_msg *msg,
+			   RadiusType msg_type);
 void ieee802_1x_encapsulate_radius(struct hostapd_data *hapd,
 				   struct sta_info *sta,
 				   const u8 *eap, size_t len);

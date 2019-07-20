@@ -301,6 +301,7 @@ struct hostapd_bss_config {
 	int radius_request_cui;
 	struct hostapd_radius_attr *radius_auth_req_attr;
 	struct hostapd_radius_attr *radius_acct_req_attr;
+	char *radius_req_attr_sqlite;
 	int radius_das_port;
 	unsigned int radius_das_time_window;
 	int radius_das_require_event_timestamp;

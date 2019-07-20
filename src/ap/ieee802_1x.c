@@ -7,6 +7,9 @@
  */
 
 #include "utils/includes.h"
+#ifdef CONFIG_SQLITE
+#include <sqlite3.h>
+#endif /* CONFIG_SQLITE */
 
 #include "utils/common.h"
 #include "utils/eloop.h"
@@ -610,6 +613,67 @@ int add_common_radius_attr(struct hostapd_data *hapd,
 			return -1;
 		}
 	}
+
+	return 0;
+}
+
+
+int add_sqlite_radius_attr(struct hostapd_data *hapd,
+			   struct sta_info *sta,
+			   struct radius_msg *msg,
+			   RadiusType msg_type)
+{
+#ifdef CONFIG_SQLITE
+	const char *attrtxt;
+	char addrtxt[3 * ETH_ALEN];
+	char *sql;
+
+	if (!hapd->rad_attr_db)
+		return -1;
+
+	os_snprintf(addrtxt, sizeof(addrtxt), MACSTR, MAC2STR(sta->addr));
+
+        sql = "SELECT attr FROM radius_attributes WHERE sta=? AND "
+                    "(reqtype=? OR reqtype IS NULL);";
+	sqlite3_stmt *stmt = NULL;
+	if (sqlite3_prepare_v2(hapd->rad_attr_db, sql, os_strlen(sql), &stmt,
+	    NULL) != SQLITE_OK) {
+		wpa_printf(MSG_ERROR,
+			   "DB: Failed to prepare SQL statement: %s",
+			   sqlite3_errmsg(hapd->rad_attr_db));
+		return -1;
+	}
+	sqlite3_bind_text(stmt, 1, addrtxt, os_strlen(addrtxt), SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 2, msg_type == RADIUS_AUTH ? "auth" : "acct", 4,
+			  SQLITE_STATIC);
+	while (sqlite3_step(stmt) == SQLITE_ROW)
+	{
+		struct hostapd_radius_attr *attr = NULL;
+		attrtxt = (char *) sqlite3_column_text(stmt, 0);
+		attr = hostapd_parse_radius_attr(attrtxt);
+		if (attr == NULL) {
+			wpa_printf(MSG_ERROR, "Skipping invalid attribute from "
+					      "SQL: %s",
+				   attrtxt);
+			continue;
+		}
+		wpa_printf(MSG_DEBUG, "Adding RADIUS attribute from SQL: %s",
+			   attrtxt);
+		if (!radius_msg_add_attr(msg, attr->type,
+					 wpabuf_head(attr->val),
+					 wpabuf_len(attr->val))) {
+			wpa_printf(MSG_ERROR, "Could not add RADIUS attribute "
+					      "from SQL");
+			continue;
+		}
+	}
+
+	sqlite3_reset(stmt);
+	sqlite3_clear_bindings(stmt);
+	sqlite3_finalize(stmt);
+	stmt = NULL;
+
+#endif /* CONFIG_SQLITE */
 
 	return 0;
 }
