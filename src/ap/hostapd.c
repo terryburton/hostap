@@ -1213,6 +1213,23 @@ static int hostapd_setup_bss(struct hostapd_data *hapd, int first)
 	if (wpa_debug_level <= MSG_MSGDUMP)
 		conf->radius->msg_dumps = 1;
 #ifndef CONFIG_NO_RADIUS
+
+#ifdef CONFIG_SQLITE
+	if (conf->radius_req_attr_sqlite) {
+		if (sqlite3_open(conf->radius_req_attr_sqlite, &hapd->rad_attr_db)) {
+			wpa_printf(MSG_ERROR, "Could not open SQLite file '%s'",
+				conf->radius_req_attr_sqlite);
+			return -1;
+		} else {
+			wpa_printf(MSG_DEBUG, "Opening RADIUS attribute database: %s",
+				   conf->radius_req_attr_sqlite);
+		}
+		if (!db_table_exists(hapd->rad_attr_db, "radius_attributes") &&
+		    db_table_create_radius_attributes(hapd->rad_attr_db) < 0)
+			return -1;
+	}
+#endif /* CONFIG_SQLITE */
+
 	hapd->radius = radius_client_init(hapd, conf->radius);
 	if (hapd->radius == NULL) {
 		wpa_printf(MSG_ERROR, "RADIUS client initialization failed.");
@@ -2229,6 +2246,10 @@ static void hostapd_bss_deinit(struct hostapd_data *hapd)
 		   hapd->conf ? hapd->conf->iface : "N/A");
 	hostapd_bss_deinit_no_free(hapd);
 	wpa_msg(hapd->msg_ctx, MSG_INFO, AP_EVENT_DISABLED);
+#ifdef CONFIG_SQLITE
+        if (hapd->rad_attr_db)
+                sqlite3_close(hapd->rad_attr_db);
+#endif /* CONFIG_SQLITE */
 	hostapd_cleanup(hapd);
 }
 

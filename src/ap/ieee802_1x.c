@@ -718,6 +718,9 @@ void ieee802_1x_encapsulate_radius(struct hostapd_data *hapd,
 				   msg) < 0)
 		goto fail;
 
+	if (sta && add_sqlite_radius_attr(hapd, sta, msg, RADIUS_AUTH) < 0)
+		goto fail;
+
 	/* TODO: should probably check MTU from driver config; 2304 is max for
 	 * IEEE 802.11, but use 1400 to avoid problems with too large packets
 	 */
